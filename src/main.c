@@ -1,3 +1,6 @@
+// TODO: Make resizable
+// TODO: Accel and decel
+
 #include <assert.h>
 #include <raylib.h>
 #include <stddef.h>
