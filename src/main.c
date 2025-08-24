@@ -35,15 +35,21 @@
 #define Y_TIMER      2
 #define TIMER_BUFLEN 10
 
-#define MAX_CARS     10
-#define SPAWN_OFFSET 50
-#define CAR_MARGIN   20
-#define CAR_LEN      (CAR_WIDTH * 2)
-#define CAR_WIDTH    (LANE_WIDTH - CAR_MARGIN * 2)
-// TODO: randomise car colour
-#define CAR_COLOUR    0xCCCC00FF
+#define MAX_CARS      10
+#define SPAWN_OFFSET  50
+#define CAR_MARGIN    20
+#define CAR_LEN       (CAR_WIDTH * 2)
+#define CAR_WIDTH     (LANE_WIDTH - CAR_MARGIN * 2)
 #define CAR_MIN_SPEED 100
 #define CAR_MAX_SPEED 300
+
+#define CAR_COLOURS_LEN 26
+unsigned int car_colours[CAR_COLOURS_LEN] = {
+    0xDC8A78FF, 0xDD7878FF, 0xEA76CBFF, 0x8839EFFF, 0xD20F39FF, 0xE64553FF, 0xFE640BFF,
+    0xDF8E1DFF, 0x40A02BFF, 0x179299FF, 0x04A5E5FF, 0x209FB5FF, 0x1E66F5FF, 0x7287FDFF,
+    0x5C5F77FF, 0x6C6F85FF, 0x7C7F93FF, 0x8C8FA1FF, 0x9CA0B0FF, 0xACB0BEFF, 0xBCC0CCFF,
+    0xCCD0DAFF, 0xEFF1F5FF, 0xE6E9EFFF, 0xDCE0E8FF,
+};
 
 typedef enum {
     LANE_LEFT = 0,
@@ -69,12 +75,13 @@ size_t last_time = 0;
 Lane   green_idx = 0;
 
 typedef struct {
-    bool used;
-    Lane origin;
-    int  orig_speed;
-    int  speed;
-    int  progress;
-    bool crossed;
+    bool         used;
+    Lane         origin;
+    int          orig_speed;
+    int          speed;
+    int          progress;
+    bool         crossed;
+    unsigned int colour;
 } Car;
 
 Car cars[MAX_CARS];
@@ -130,6 +137,7 @@ void cars_add(const Lane origin) {
                 .progress   = (progress_min > 0) ? 0 : progress_min,
                 .orig_speed = GetRandomValue(CAR_MIN_SPEED, CAR_MAX_SPEED),
                 .crossed    = false,
+                .colour     = car_colours[GetRandomValue(0, CAR_COLOURS_LEN - 1)],
             };
             car->speed = car->orig_speed;
             break;
@@ -302,28 +310,28 @@ void draw_car(const size_t i) {
                           (int) HORZ_ROAD_Y + CAR_MARGIN,
                           (int) CAR_LEN,
                           (int) CAR_WIDTH,
-                          GetColor(CAR_COLOUR));
+                          GetColor(car->colour));
         } break;
         case LANE_RIGHT: {
             DrawRectangle(SCREEN_WIDTH - car->progress,
                           (int) HORZ_ROAD_Y + (int) LANE_WIDTH + CAR_MARGIN,
                           (int) CAR_LEN,
                           (int) CAR_WIDTH,
-                          GetColor(CAR_COLOUR));
+                          GetColor(car->colour));
         } break;
         case LANE_UP: {
             DrawRectangle((int) VERT_ROAD_X + (int) LANE_WIDTH + CAR_MARGIN,
                           car->progress - (int) CAR_LEN,
                           (int) CAR_WIDTH,
                           (int) CAR_LEN,
-                          GetColor(CAR_COLOUR));
+                          GetColor(car->colour));
         } break;
         case LANE_DOWN: {
             DrawRectangle((int) VERT_ROAD_X + CAR_MARGIN,
                           SCREEN_HEIGHT - car->progress,
                           (int) CAR_WIDTH,
                           (int) CAR_LEN,
-                          GetColor(CAR_COLOUR));
+                          GetColor(car->colour));
         } break;
         default: {
             assert(0 && "unimplemented");
