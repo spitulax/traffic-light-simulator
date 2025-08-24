@@ -8,10 +8,10 @@
 #define SCREEN_HEIGHT 720
 
 #define ROAD_WIDTH  160
-#define LANE_WIDTH  ((float) ROAD_WIDTH / 2)
+#define LANE_WIDTH  ((int) ROAD_WIDTH / 2)
 #define ROAD_COLOUR 0x404040FF
-#define VERT_ROAD_X ((float) SCREEN_WIDTH / 2 - (float) ROAD_WIDTH / 2)
-#define HORZ_ROAD_Y ((float) SCREEN_HEIGHT / 2 - (float) ROAD_WIDTH / 2)
+#define VERT_ROAD_X ((int) SCREEN_WIDTH / 2 - (int) ROAD_WIDTH / 2)
+#define HORZ_ROAD_Y ((int) SCREEN_HEIGHT / 2 - (int) ROAD_WIDTH / 2)
 
 #define LIGHT_RADIUS   16
 #define LIGHT_DIAMETER (LIGHT_RADIUS * 2)
@@ -120,11 +120,11 @@ void lights_init(void) {
 }
 
 void cars_add(const Lane origin) {
-    int progress_min = 0 - (int) CAR_LEN;
+    int progress_min = 0 - CAR_LEN;
     for (size_t i = 0; i < MAX_CARS; ++i) {
         Car *car = &cars[i];
         if (car->origin == origin && car->progress < progress_min) {
-            progress_min = car->progress - (int) CAR_LEN - CAR_MARGIN;
+            progress_min = car->progress - CAR_LEN - CAR_MARGIN;
         }
     }
 
@@ -185,16 +185,16 @@ unsigned int colour_get_colour(const Colour col, const bool on) {
 int crossing_start(const Lane lane) {
     switch (lane) {
         case LANE_LEFT: {
-            return (int) VERT_ROAD_X - FRAME_W - CAR_MARGIN;
+            return VERT_ROAD_X - FRAME_W - CAR_MARGIN;
         } break;
         case LANE_UP: {
-            return (int) HORZ_ROAD_Y - FRAME_W - CAR_MARGIN;
+            return HORZ_ROAD_Y - FRAME_W - CAR_MARGIN;
         } break;
         case LANE_RIGHT: {
-            return SCREEN_WIDTH - ((int) VERT_ROAD_X + ROAD_WIDTH + FRAME_W + CAR_MARGIN);
+            return SCREEN_WIDTH - (VERT_ROAD_X + ROAD_WIDTH + FRAME_W + CAR_MARGIN);
         } break;
         case LANE_DOWN: {
-            return SCREEN_HEIGHT - ((int) HORZ_ROAD_Y + ROAD_WIDTH + FRAME_W + CAR_MARGIN);
+            return SCREEN_HEIGHT - (HORZ_ROAD_Y + ROAD_WIDTH + FRAME_W + CAR_MARGIN);
         } break;
         case LANE_NUM: {
         };
@@ -205,16 +205,16 @@ int crossing_start(const Lane lane) {
 int frame_start(const Lane lane) {
     switch (lane) {
         case LANE_LEFT: {
-            return (int) VERT_ROAD_X - FRAME_W;
+            return VERT_ROAD_X - FRAME_W;
         } break;
         case LANE_UP: {
-            return (int) HORZ_ROAD_Y - FRAME_W;
+            return HORZ_ROAD_Y - FRAME_W;
         } break;
         case LANE_RIGHT: {
-            return (int) VERT_ROAD_X + ROAD_WIDTH;
+            return VERT_ROAD_X + ROAD_WIDTH;
         } break;
         case LANE_DOWN: {
-            return (int) HORZ_ROAD_Y + ROAD_WIDTH;
+            return HORZ_ROAD_Y + ROAD_WIDTH;
         } break;
         case LANE_NUM: {
         };
@@ -243,13 +243,13 @@ void draw_light(const Lane lane) {
     switch (lane) {
         case LANE_LEFT: {
             x    = frame_start(lane);
-            y    = (int) HORZ_ROAD_Y + LIGHT_MARGIN;
+            y    = HORZ_ROAD_Y + LIGHT_MARGIN;
             w    = FRAME_W;
             h    = FRAME_H;
             vert = true;
         } break;
         case LANE_UP: {
-            x    = (int) VERT_ROAD_X + gap;
+            x    = VERT_ROAD_X + gap;
             y    = frame_start(lane);
             w    = FRAME_H;
             h    = FRAME_W;
@@ -257,13 +257,13 @@ void draw_light(const Lane lane) {
         } break;
         case LANE_RIGHT: {
             x    = frame_start(lane);
-            y    = (int) HORZ_ROAD_Y + gap;
+            y    = HORZ_ROAD_Y + gap;
             w    = FRAME_W;
             h    = FRAME_H;
             vert = true;
         } break;
         case LANE_DOWN: {
-            x    = (int) VERT_ROAD_X + LIGHT_MARGIN;
+            x    = VERT_ROAD_X + LIGHT_MARGIN;
             y    = frame_start(lane);
             w    = FRAME_H;
             h    = FRAME_W;
@@ -306,31 +306,31 @@ void draw_car(const size_t i) {
     const Car *car = &cars[i];
     switch (car->origin) {
         case LANE_LEFT: {
-            DrawRectangle(car->progress - (int) CAR_LEN,
-                          (int) HORZ_ROAD_Y + CAR_MARGIN,
-                          (int) CAR_LEN,
-                          (int) CAR_WIDTH,
+            DrawRectangle(car->progress - CAR_LEN,
+                          HORZ_ROAD_Y + CAR_MARGIN,
+                          CAR_LEN,
+                          CAR_WIDTH,
                           GetColor(car->colour));
         } break;
         case LANE_RIGHT: {
             DrawRectangle(SCREEN_WIDTH - car->progress,
-                          (int) HORZ_ROAD_Y + (int) LANE_WIDTH + CAR_MARGIN,
-                          (int) CAR_LEN,
-                          (int) CAR_WIDTH,
+                          HORZ_ROAD_Y + LANE_WIDTH + CAR_MARGIN,
+                          CAR_LEN,
+                          CAR_WIDTH,
                           GetColor(car->colour));
         } break;
         case LANE_UP: {
-            DrawRectangle((int) VERT_ROAD_X + (int) LANE_WIDTH + CAR_MARGIN,
-                          car->progress - (int) CAR_LEN,
-                          (int) CAR_WIDTH,
-                          (int) CAR_LEN,
+            DrawRectangle(VERT_ROAD_X + LANE_WIDTH + CAR_MARGIN,
+                          car->progress - CAR_LEN,
+                          CAR_WIDTH,
+                          CAR_LEN,
                           GetColor(car->colour));
         } break;
         case LANE_DOWN: {
-            DrawRectangle((int) VERT_ROAD_X + CAR_MARGIN,
+            DrawRectangle(VERT_ROAD_X + CAR_MARGIN,
                           SCREEN_HEIGHT - car->progress,
-                          (int) CAR_WIDTH,
-                          (int) CAR_LEN,
+                          CAR_WIDTH,
+                          CAR_LEN,
                           GetColor(car->colour));
         } break;
         default: {
@@ -340,8 +340,8 @@ void draw_car(const size_t i) {
 }
 
 void draw(void) {
-    DrawRectangle(0, (int) HORZ_ROAD_Y, SCREEN_WIDTH * 2, ROAD_WIDTH, GetColor(ROAD_COLOUR));
-    DrawRectangle((int) VERT_ROAD_X, 0, ROAD_WIDTH, SCREEN_HEIGHT * 2, GetColor(ROAD_COLOUR));
+    DrawRectangle(0, HORZ_ROAD_Y, SCREEN_WIDTH * 2, ROAD_WIDTH, GetColor(ROAD_COLOUR));
+    DrawRectangle(VERT_ROAD_X, 0, ROAD_WIDTH, SCREEN_HEIGHT * 2, GetColor(ROAD_COLOUR));
 
     for (size_t i = 0; i < MAX_CARS; ++i) {
         if (cars[i].used) {
@@ -412,7 +412,7 @@ void update_cars(void) {
             if (j != i && other_car->used && other_car->origin == car->origin &&
                 other_car->progress > car->progress) {
                 if (car->speed == 0 ||
-                    (car->progress >= other_car->progress - (int) CAR_LEN - CAR_MARGIN)) {
+                    (car->progress >= other_car->progress - CAR_LEN - CAR_MARGIN)) {
                     car->speed = other_car->speed;
                     break;
                 }
@@ -428,7 +428,7 @@ void update_cars(void) {
             }
         }
 
-        if (car->progress > upper_bound + (int) CAR_LEN * 2) {
+        if (car->progress > upper_bound + CAR_LEN * 2) {
             car->used = false;
         }
 
