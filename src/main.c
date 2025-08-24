@@ -415,6 +415,8 @@ void update_cars(void) {
                     (car->progress >= other_car->progress - CAR_LEN - CAR_MARGIN)) {
                     car->speed = other_car->speed;
                     break;
+                } else {
+                    car->speed = car->orig_speed;
                 }
             }
         }
