@@ -31,7 +31,7 @@
 #define YELLOW_ON  0xFFFF00FF
 #define GREEN_ON   0x00FF00FF
 
-#define G_TIMER      8
+#define G_TIMER      10
 #define Y_TIMER      2
 #define TIMER_BUFLEN 10
 
@@ -81,7 +81,7 @@ Car cars[MAX_CARS];
 
 unsigned int red_timer(const Lane lane) {
     const unsigned int i = (unsigned int) (lane - green_idx) % LANE_NUM;
-    return G_TIMER * i + 1;
+    return G_TIMER * i + Y_TIMER * i;
 }
 
 void lights_red(const Lane lane) {
@@ -348,7 +348,10 @@ void draw(void) {
 }
 
 void update_lights(void) {
+    bool switched = false;
+
     for (Lane i = 0; i < LANE_NUM; ++i) {
+        if (switched && i == green_idx) continue;
         Light *light = &lights[i];
         if (light->timer > 0) {
             --light->timer;
@@ -356,6 +359,7 @@ void update_lights(void) {
         if (light->timer <= 0 && light->colour == COLOUR_YELLOW) {
             lights_red(i);
             lights_green(green_idx);
+            switched = true;
         }
     }
 
@@ -425,7 +429,7 @@ void update_cars(void) {
 }
 
 void update(void) {
-    const size_t time = (size_t) GetTime() + 1;
+    const size_t time = (size_t) GetTime();
 
     if (last_time != time) {
         update_lights();
