@@ -8,14 +8,14 @@
 #define SCREEN_HEIGHT 720
 
 #define ROAD_WIDTH  160
-#define LANE_WIDTH  ((int) ROAD_WIDTH / 2)
 #define ROAD_COLOUR 0x404040FF
+#define LANE_WIDTH  ((int) ROAD_WIDTH / 2)
 #define VERT_ROAD_X ((int) SCREEN_WIDTH / 2 - (int) ROAD_WIDTH / 2)
 #define HORZ_ROAD_Y ((int) SCREEN_HEIGHT / 2 - (int) ROAD_WIDTH / 2)
 
 #define LIGHT_RADIUS   16
-#define LIGHT_DIAMETER (LIGHT_RADIUS * 2)
 #define LIGHT_MARGIN   2
+#define LIGHT_DIAMETER (LIGHT_RADIUS * 2)
 
 #define FRAME_COLOUR 0x000000FF
 #define FRAME_W      (LIGHT_DIAMETER + LIGHT_MARGIN * 2)
@@ -35,13 +35,14 @@
 #define Y_TIMER      2
 #define TIMER_BUFLEN 10
 
-#define MAX_CARS      10
-#define SPAWN_OFFSET  50
-#define CAR_MARGIN    20
-#define CAR_LEN       (CAR_WIDTH * 2)
-#define CAR_WIDTH     (LANE_WIDTH - CAR_MARGIN * 2)
-#define CAR_MIN_SPEED 100
-#define CAR_MAX_SPEED 300
+#define MAX_CARS       20
+#define SPAWN_OFFSET   50
+#define SPAWN_INTERVAL 1
+#define CAR_MARGIN     20
+#define CAR_MIN_SPEED  100
+#define CAR_MAX_SPEED  300
+#define CAR_LEN        (CAR_WIDTH * 2)
+#define CAR_WIDTH      (LANE_WIDTH - CAR_MARGIN * 2)
 
 #define CAR_COLOURS_LEN 26
 unsigned int car_colours[CAR_COLOURS_LEN] = {
@@ -84,7 +85,8 @@ typedef struct {
     unsigned int colour;
 } Car;
 
-Car cars[MAX_CARS];
+Car          cars[MAX_CARS];
+unsigned int spawn_timer = 0;
 
 unsigned int red_timer(const Lane lane) {
     const unsigned int i = (unsigned int) (lane - green_idx) % LANE_NUM;
@@ -382,8 +384,13 @@ void update_lights(void) {
 }
 
 void spawn_cars(void) {
-    const Lane lane = (Lane) GetRandomValue(0, LANE_NUM - 1);
-    cars_add(lane);
+    if (spawn_timer > 0) {
+        --spawn_timer;
+    } else {
+        const Lane lane = (Lane) GetRandomValue(0, LANE_NUM - 1);
+        cars_add(lane);
+        spawn_timer = SPAWN_INTERVAL;
+    };
 }
 
 void update_cars(void) {
