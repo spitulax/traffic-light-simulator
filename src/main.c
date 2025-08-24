@@ -144,7 +144,9 @@ unsigned int colour_get_colour(const Colour col, const bool on) {
                 return GREEN_ON;
             } break;
         }
-    } else {
+    }
+
+    else {
         switch (col) {
             case COLOUR_RED: {
                 return RED_OFF;
@@ -156,6 +158,28 @@ unsigned int colour_get_colour(const Colour col, const bool on) {
                 return GREEN_OFF;
             } break;
         }
+    }
+    assert(0 && "unreachable");
+}
+
+int crossing_start(const Lane lane, const bool frame_start) {
+    const int subtract_offset = (frame_start) ? 0 : CAR_MARGIN;
+    const int add_offset      = (frame_start) ? 0 : FRAME_W + CAR_MARGIN;
+    switch (lane) {
+        case LANE_LEFT: {
+            return VERT_ROAD_X - FRAME_W - subtract_offset;
+        } break;
+        case LANE_UP: {
+            return HORZ_ROAD_Y - FRAME_W - subtract_offset;
+        } break;
+        case LANE_RIGHT: {
+            return VERT_ROAD_X + ROAD_WIDTH + add_offset;
+        } break;
+        case LANE_DOWN: {
+            return HORZ_ROAD_Y + ROAD_WIDTH + add_offset;
+        } break;
+        case LANE_NUM: {
+        };
     }
     assert(0 && "unreachable");
 }
@@ -173,7 +197,45 @@ void draw_timer(const int pos_x, const int pos_y, const Lane lane) {
     DrawText(buf, pos_x + FRAME_W + LIGHT_MARGIN, pos_y, FONT_SIZE, GetColor(TEXT_COLOUR));
 }
 
-void draw_light(int x, int y, const int w, const int h, const bool vert, const Lane lane) {
+void draw_light(const Lane lane) {
+    const int gap = ROAD_WIDTH - FRAME_H - LIGHT_MARGIN;
+
+    int  x = 0, y = 0, w = 0, h = 0;
+    bool vert = 0;
+    switch (lane) {
+        case LANE_LEFT: {
+            x    = crossing_start(lane, true);
+            y    = HORZ_ROAD_Y + LIGHT_MARGIN;
+            w    = FRAME_W;
+            h    = FRAME_H;
+            vert = true;
+        } break;
+        case LANE_UP: {
+            x    = VERT_ROAD_X + gap;
+            y    = crossing_start(lane, true);
+            w    = FRAME_H;
+            h    = FRAME_W;
+            vert = false;
+        } break;
+        case LANE_RIGHT: {
+            x    = crossing_start(lane, true);
+            y    = HORZ_ROAD_Y + gap;
+            w    = FRAME_W;
+            h    = FRAME_H;
+            vert = true;
+        } break;
+        case LANE_DOWN: {
+            x    = VERT_ROAD_X + LIGHT_MARGIN;
+            y    = crossing_start(lane, true);
+            w    = FRAME_H;
+            h    = FRAME_W;
+            vert = false;
+        } break;
+        case LANE_NUM: {
+            assert(0 && "unreachable");
+        };
+    }
+
     DrawRectangle(x, y, w, h, GetColor(FRAME_COLOUR));
 
     for (int i = 0; i < 3; ++i) {
@@ -200,14 +262,6 @@ void draw_light(int x, int y, const int w, const int h, const bool vert, const L
                      GetColor(TEXT_COLOUR));
         }
     }
-}
-
-void draw_light_v(const int pos_x, const int pos_y, const Lane lane) {
-    draw_light(pos_x, pos_y, FRAME_W, FRAME_H, true, lane);
-}
-
-void draw_light_h(const int pos_x, const int pos_y, const Lane lane) {
-    draw_light(pos_x, pos_y, FRAME_H, FRAME_W, false, lane);
 }
 
 void draw_car(const size_t i) {
@@ -257,15 +311,13 @@ void draw(void) {
         }
     }
 
-    const int gap = ROAD_WIDTH - FRAME_H - LIGHT_MARGIN;
-    draw_light_v(VERT_ROAD_X - FRAME_W, HORZ_ROAD_Y + LIGHT_MARGIN, LANE_LEFT);
-    draw_light_h(VERT_ROAD_X + gap, HORZ_ROAD_Y - FRAME_W, LANE_UP);
-    draw_light_v(VERT_ROAD_X + ROAD_WIDTH, HORZ_ROAD_Y + gap, LANE_RIGHT);
-    draw_light_h(VERT_ROAD_X + LIGHT_MARGIN, HORZ_ROAD_Y + ROAD_WIDTH, LANE_DOWN);
+    draw_light(LANE_LEFT);
+    draw_light(LANE_UP);
+    draw_light(LANE_RIGHT);
+    draw_light(LANE_DOWN);
 }
 
-void update(void) {
-    const size_t time = (size_t) GetTime() + 1;
+void update_lights(const size_t time) {
     if (last_time != time) {
         for (Lane i = 0; i < LANE_NUM; ++i) {
             Light *state = &lights[i];
@@ -287,7 +339,9 @@ void update(void) {
             break;
         }
     }
+}
 
+void update_cars(void) {
     for (size_t i = 0; i < MAX_CARS; ++i) {
         Car *car = &cars[i];
         if (car->used) {
@@ -313,6 +367,13 @@ void update(void) {
             }
         }
     }
+}
+
+void update(void) {
+    const size_t time = (size_t) GetTime() + 1;
+
+    update_lights(time);
+    update_cars();
 
     last_time = time;
 }
