@@ -122,11 +122,12 @@ void lights_init(void) {
 }
 
 void cars_add(const Lane origin) {
-    int progress_min = 0 - CAR_LEN;
+    int progress_min = 0 - CAR_LEN - CAR_MARGIN;
     for (size_t i = 0; i < MAX_CARS; ++i) {
-        Car *car = &cars[i];
-        if (car->origin == origin && car->progress < progress_min) {
-            progress_min = car->progress - CAR_LEN - CAR_MARGIN;
+        Car      *car      = &cars[i];
+        const int progress = car->progress - CAR_LEN - CAR_MARGIN;
+        if (car->origin == origin && progress < progress_min) {
+            progress_min += progress;
         }
     }
 
