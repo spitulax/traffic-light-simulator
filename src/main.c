@@ -2,6 +2,7 @@
 #include <raylib.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <time.h>
 
 #define SCREEN_WIDTH  1024
 #define SCREEN_HEIGHT 720
@@ -9,8 +10,8 @@
 #define ROAD_WIDTH  160
 #define LANE_WIDTH  ((float) ROAD_WIDTH / 2)
 #define ROAD_COLOUR 0x404040FF
-#define VERT_ROAD_X (SCREEN_WIDTH / 2 - ROAD_WIDTH / 2)
-#define HORZ_ROAD_Y (SCREEN_HEIGHT / 2 - ROAD_WIDTH / 2)
+#define VERT_ROAD_X ((float) SCREEN_WIDTH / 2 - (float) ROAD_WIDTH / 2)
+#define HORZ_ROAD_Y ((float) SCREEN_HEIGHT / 2 - (float) ROAD_WIDTH / 2)
 
 #define LIGHT_RADIUS   16
 #define LIGHT_DIAMETER (LIGHT_RADIUS * 2)
@@ -30,8 +31,8 @@
 #define YELLOW_ON  0xFFFF00FF
 #define GREEN_ON   0x00FF00FF
 
-#define G_TIMER      5
-#define Y_TIMER      1
+#define G_TIMER      8
+#define Y_TIMER      2
 #define TIMER_BUFLEN 10
 
 #define MAX_CARS     10
@@ -41,8 +42,8 @@
 #define CAR_WIDTH    (LANE_WIDTH - CAR_MARGIN * 2)
 // TODO: randomise car colour
 #define CAR_COLOUR    0xCCCC00FF
-#define CAR_MIN_SPEED 200
-#define CAR_MAX_SPEED 500
+#define CAR_MIN_SPEED 100
+#define CAR_MAX_SPEED 300
 
 typedef enum {
     LANE_LEFT = 0,
@@ -70,8 +71,10 @@ Lane   green_idx = 0;
 typedef struct {
     bool used;
     Lane origin;
+    int  orig_speed;
     int  speed;
     int  progress;
+    bool crossed;
 } Car;
 
 Car cars[MAX_CARS];
@@ -109,25 +112,34 @@ void lights_init(void) {
     lights_green(green_idx);
 }
 
-void cars_init(void) {
-    for (size_t i = 0; i < MAX_CARS; ++i) {
-        cars[i].used = false;
-    }
-}
-
 void cars_add(const Lane origin) {
+    int progress_min = 0 - (int) CAR_LEN;
+    for (size_t i = 0; i < MAX_CARS; ++i) {
+        Car *car = &cars[i];
+        if (car->origin == origin && car->progress < progress_min) {
+            progress_min = car->progress - (int) CAR_LEN - CAR_MARGIN;
+        }
+    }
+
     for (size_t i = 0; i < MAX_CARS; ++i) {
         Car *car = &cars[i];
         if (!car->used) {
             *car = (Car) {
-                .used     = true,
-                .origin   = origin,
-                .progress = 0 - (int) CAR_LEN,
-                // TODO: randomise speed
-                .speed = CAR_MAX_SPEED,
+                .used       = true,
+                .origin     = origin,
+                .progress   = (progress_min > 0) ? 0 : progress_min,
+                .orig_speed = GetRandomValue(CAR_MIN_SPEED, CAR_MAX_SPEED),
+                .crossed    = false,
             };
+            car->speed = car->orig_speed;
             break;
         }
+    }
+}
+
+void cars_init(void) {
+    for (size_t i = 0; i < MAX_CARS; ++i) {
+        cars[i].used = false;
     }
 }
 
@@ -162,21 +174,39 @@ unsigned int colour_get_colour(const Colour col, const bool on) {
     assert(0 && "unreachable");
 }
 
-int crossing_start(const Lane lane, const bool frame_start) {
-    const int subtract_offset = (frame_start) ? 0 : CAR_MARGIN;
-    const int add_offset      = (frame_start) ? 0 : FRAME_W + CAR_MARGIN;
+int crossing_start(const Lane lane) {
     switch (lane) {
         case LANE_LEFT: {
-            return VERT_ROAD_X - FRAME_W - subtract_offset;
+            return (int) VERT_ROAD_X - FRAME_W - CAR_MARGIN;
         } break;
         case LANE_UP: {
-            return HORZ_ROAD_Y - FRAME_W - subtract_offset;
+            return (int) HORZ_ROAD_Y - FRAME_W - CAR_MARGIN;
         } break;
         case LANE_RIGHT: {
-            return VERT_ROAD_X + ROAD_WIDTH + add_offset;
+            return SCREEN_WIDTH - ((int) VERT_ROAD_X + ROAD_WIDTH + FRAME_W + CAR_MARGIN);
         } break;
         case LANE_DOWN: {
-            return HORZ_ROAD_Y + ROAD_WIDTH + add_offset;
+            return SCREEN_HEIGHT - ((int) HORZ_ROAD_Y + ROAD_WIDTH + FRAME_W + CAR_MARGIN);
+        } break;
+        case LANE_NUM: {
+        };
+    }
+    assert(0 && "unreachable");
+}
+
+int frame_start(const Lane lane) {
+    switch (lane) {
+        case LANE_LEFT: {
+            return (int) VERT_ROAD_X - FRAME_W;
+        } break;
+        case LANE_UP: {
+            return (int) HORZ_ROAD_Y - FRAME_W;
+        } break;
+        case LANE_RIGHT: {
+            return (int) VERT_ROAD_X + ROAD_WIDTH;
+        } break;
+        case LANE_DOWN: {
+            return (int) HORZ_ROAD_Y + ROAD_WIDTH;
         } break;
         case LANE_NUM: {
         };
@@ -185,14 +215,14 @@ int crossing_start(const Lane lane, const bool frame_start) {
 }
 
 bool colour_is_on(const Colour col, const Lane lane) {
-    const Light *state = &lights[lane];
-    return col == state->colour;
+    const Light *light = &lights[lane];
+    return col == light->colour;
 }
 
 void draw_timer(const int pos_x, const int pos_y, const Lane lane) {
-    const Light *state = &lights[lane];
+    const Light *light = &lights[lane];
     char         buf[TIMER_BUFLEN];
-    const int    n = sprintf(buf, "%u", state->timer);
+    const int    n = sprintf(buf, "%u", light->timer);
     buf[n]         = '\0';
     DrawText(buf, pos_x + FRAME_W + LIGHT_MARGIN, pos_y, FONT_SIZE, GetColor(TEXT_COLOUR));
 }
@@ -204,29 +234,29 @@ void draw_light(const Lane lane) {
     bool vert = 0;
     switch (lane) {
         case LANE_LEFT: {
-            x    = crossing_start(lane, true);
-            y    = HORZ_ROAD_Y + LIGHT_MARGIN;
+            x    = frame_start(lane);
+            y    = (int) HORZ_ROAD_Y + LIGHT_MARGIN;
             w    = FRAME_W;
             h    = FRAME_H;
             vert = true;
         } break;
         case LANE_UP: {
-            x    = VERT_ROAD_X + gap;
-            y    = crossing_start(lane, true);
+            x    = (int) VERT_ROAD_X + gap;
+            y    = frame_start(lane);
             w    = FRAME_H;
             h    = FRAME_W;
             vert = false;
         } break;
         case LANE_RIGHT: {
-            x    = crossing_start(lane, true);
-            y    = HORZ_ROAD_Y + gap;
+            x    = frame_start(lane);
+            y    = (int) HORZ_ROAD_Y + gap;
             w    = FRAME_W;
             h    = FRAME_H;
             vert = true;
         } break;
         case LANE_DOWN: {
-            x    = VERT_ROAD_X + LIGHT_MARGIN;
-            y    = crossing_start(lane, true);
+            x    = (int) VERT_ROAD_X + LIGHT_MARGIN;
+            y    = frame_start(lane);
             w    = FRAME_H;
             h    = FRAME_W;
             vert = false;
@@ -250,9 +280,9 @@ void draw_light(const Lane lane) {
         DrawCircle(circ_x, circ_y, LIGHT_RADIUS, col);
 
         if (is_on) {
-            const Light *state = &lights[lane];
+            const Light *light = &lights[lane];
             char         buf[TIMER_BUFLEN];
-            const int    n   = sprintf(buf, "%u", state->timer);
+            const int    n   = sprintf(buf, "%u", light->timer);
             buf[n]           = '\0';
             const int font_w = MeasureText(buf, FONT_SIZE);
             DrawText(buf,
@@ -269,27 +299,27 @@ void draw_car(const size_t i) {
     switch (car->origin) {
         case LANE_LEFT: {
             DrawRectangle(car->progress - (int) CAR_LEN,
-                          HORZ_ROAD_Y + CAR_MARGIN,
+                          (int) HORZ_ROAD_Y + CAR_MARGIN,
                           (int) CAR_LEN,
                           (int) CAR_WIDTH,
                           GetColor(CAR_COLOUR));
         } break;
         case LANE_RIGHT: {
             DrawRectangle(SCREEN_WIDTH - car->progress,
-                          HORZ_ROAD_Y + (int) LANE_WIDTH + CAR_MARGIN,
+                          (int) HORZ_ROAD_Y + (int) LANE_WIDTH + CAR_MARGIN,
                           (int) CAR_LEN,
                           (int) CAR_WIDTH,
                           GetColor(CAR_COLOUR));
         } break;
         case LANE_UP: {
-            DrawRectangle(VERT_ROAD_X + (int) LANE_WIDTH + CAR_MARGIN,
+            DrawRectangle((int) VERT_ROAD_X + (int) LANE_WIDTH + CAR_MARGIN,
                           car->progress - (int) CAR_LEN,
                           (int) CAR_WIDTH,
                           (int) CAR_LEN,
                           GetColor(CAR_COLOUR));
         } break;
         case LANE_DOWN: {
-            DrawRectangle(VERT_ROAD_X + CAR_MARGIN,
+            DrawRectangle((int) VERT_ROAD_X + CAR_MARGIN,
                           SCREEN_HEIGHT - car->progress,
                           (int) CAR_WIDTH,
                           (int) CAR_LEN,
@@ -302,8 +332,8 @@ void draw_car(const size_t i) {
 }
 
 void draw(void) {
-    DrawRectangle(0, HORZ_ROAD_Y, SCREEN_WIDTH * 2, ROAD_WIDTH, GetColor(ROAD_COLOUR));
-    DrawRectangle(VERT_ROAD_X, 0, ROAD_WIDTH, SCREEN_HEIGHT * 2, GetColor(ROAD_COLOUR));
+    DrawRectangle(0, (int) HORZ_ROAD_Y, SCREEN_WIDTH * 2, ROAD_WIDTH, GetColor(ROAD_COLOUR));
+    DrawRectangle((int) VERT_ROAD_X, 0, ROAD_WIDTH, SCREEN_HEIGHT * 2, GetColor(ROAD_COLOUR));
 
     for (size_t i = 0; i < MAX_CARS; ++i) {
         if (cars[i].used) {
@@ -317,23 +347,21 @@ void draw(void) {
     draw_light(LANE_DOWN);
 }
 
-void update_lights(const size_t time) {
-    if (last_time != time) {
-        for (Lane i = 0; i < LANE_NUM; ++i) {
-            Light *state = &lights[i];
-            if (state->timer > 0) {
-                --state->timer;
-            }
-            if (state->timer <= 0 && state->colour == COLOUR_YELLOW) {
-                lights_red(i);
-                lights_green(green_idx);
-            }
+void update_lights(void) {
+    for (Lane i = 0; i < LANE_NUM; ++i) {
+        Light *light = &lights[i];
+        if (light->timer > 0) {
+            --light->timer;
+        }
+        if (light->timer <= 0 && light->colour == COLOUR_YELLOW) {
+            lights_red(i);
+            lights_green(green_idx);
         }
     }
 
     for (Lane i = 0; i < LANE_NUM; ++i) {
-        Light *state = &lights[i];
-        if (i == green_idx && state->colour == COLOUR_GREEN && state->timer <= 0) {
+        Light *light = &lights[i];
+        if (i == green_idx && light->colour == COLOUR_GREEN && light->timer <= 0) {
             lights_yellow(i);
             green_idx = (green_idx + 1) % LANE_NUM;
             break;
@@ -341,54 +369,81 @@ void update_lights(const size_t time) {
     }
 }
 
+void spawn_cars(void) {
+    const Lane lane = (Lane) GetRandomValue(0, LANE_NUM - 1);
+    cars_add(lane);
+}
+
 void update_cars(void) {
     for (size_t i = 0; i < MAX_CARS; ++i) {
         Car *car = &cars[i];
-        if (car->used) {
-            car->progress += (int) ((float) car->speed * GetFrameTime());
+        if (!car->used) continue;
+        car->progress += (int) ((float) car->speed * GetFrameTime());
 
-            int upper_bound = 0;
-            switch (car->origin) {
-                case LANE_LEFT:
-                case LANE_RIGHT: {
-                    upper_bound = SCREEN_WIDTH;
-                } break;
-                case LANE_UP:
-                case LANE_DOWN: {
-                    upper_bound = SCREEN_HEIGHT;
-                } break;
-                case LANE_NUM: {
-                    assert(0 && "unreachable");
-                }
-            }
-
-            if (car->progress > upper_bound + (int) CAR_LEN) {
-                car->used = false;
+        int upper_bound = 0;
+        switch (car->origin) {
+            case LANE_LEFT:
+            case LANE_RIGHT: {
+                upper_bound = SCREEN_WIDTH;
+            } break;
+            case LANE_UP:
+            case LANE_DOWN: {
+                upper_bound = SCREEN_HEIGHT;
+            } break;
+            case LANE_NUM: {
+                assert(0 && "unreachable");
             }
         }
+
+        for (size_t j = 0; j < MAX_CARS; ++j) {
+            Car *other_car = &cars[j];
+            if (j != i && other_car->used && other_car->origin == car->origin &&
+                other_car->progress > car->progress) {
+                if (car->speed == 0 ||
+                    (car->progress >= other_car->progress - (int) CAR_LEN - CAR_MARGIN)) {
+                    car->speed = other_car->speed;
+                    break;
+                }
+            }
+        }
+
+        if (!car->crossed && car->progress >= crossing_start(car->origin)) {
+            if (lights[car->origin].colour != COLOUR_GREEN) {
+                car->speed = 0;
+            } else {
+                car->speed   = car->orig_speed;
+                car->crossed = true;
+            }
+        }
+
+        if (car->progress > upper_bound + (int) CAR_LEN * 2) {
+            car->used = false;
+        }
+
+        car->progress += (int) ((float) car->speed * GetFrameTime());
     }
 }
 
 void update(void) {
     const size_t time = (size_t) GetTime() + 1;
 
-    update_lights(time);
+    if (last_time != time) {
+        update_lights();
+        spawn_cars();
+    }
     update_cars();
 
     last_time = time;
 }
 
 int main(void) {
+    SetRandomSeed((unsigned int) time(NULL));
+
     lights_init();
     cars_init();
 
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Traffic Light Simulator");
     SetTargetFPS(60);
-
-    cars_add(LANE_LEFT);
-    cars_add(LANE_UP);
-    cars_add(LANE_RIGHT);
-    cars_add(LANE_DOWN);
 
     while (!WindowShouldClose()) {
         update();
